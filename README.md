@@ -145,6 +145,6 @@ Abrir en navegador: http://localhost:5000
 - Optimización de algoritmos  
 - Traducciones
 
-##Conclusión
+## Conclusión
 
 Eco-Balance combina ciencia de datos y ecología, demostrando cómo la tecnología puede apoyar la conservación ambiental.
