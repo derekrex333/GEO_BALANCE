@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EcoBalance - Dashboard Principal</title>
+    
+    <!-- Google Fonts para una tipografía más limpia -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <!-- Leaflet CSS (necesario para el mapa) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+
+    <!-- Tu hoja de estilos personalizada -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <img src="static/img/eb.png" alt="EcoBalance" class="logo">
+                <h1>Eco-Balance</h1>
+            </div>
+            <div class="nav-links">
+                <a href="/" class="active">Dashboard</a>
+                <a href="/admin">Administración</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container">
+        {% if error %}
+        <div class="alert alert-error">
+            <strong>Error:</strong> {{ error }}
+        </div>
+        {% endif %}
+
+        <header class="page-header">
+            <h2>Dashboard de Monitoreo</h2>
+            <p class="subtitle">Análisis del Índice de Salud Ecológica (EHI) en tiempo real.</p>
+        </header>
+
+        <!-- Mapa interactivo y estadísticas clave -->
+        <div class="dashboard-main-grid">
+            <div class="map-container">
+                <div id="map"></div>
+            </div>
+            <div class="stats-container">
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fa-solid fa-location-dot"></i></div>
+                    <div class="stat-content">
+                        <h3>{{ zonas|length }}</h3>
+                        <p>Sitios Monitoreados</p>
+                    </div>
+                </div>
+                <div class="stat-card" id="stat-promedio">
+                    <div class="stat-icon"><i class="fa-solid fa-chart-line"></i></div>
+                    <div class="stat-content">
+                        <h3>--</h3>
+                        <p>EHI Promedio</p>
+                    </div>
+                </div>
+                <div class="stat-card" id="stat-criticos">
+                    <div class="stat-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                    <div class="stat-content">
+                        <h3>--</h3>
+                        <p>Sitios Críticos</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <h2 class="section-title">Detalle por Sitio</h2>
+        
+        <!-- Lista de sitios -->
+        <div class="sites-grid">
+            {% if zonas %}
+                {% for zona in zonas %}
+                {% set ehi_val = zona.get('ehi') %}
+                {% set categoria = zona.get('riesgo', 'N/A') %}
+                {% set categoria_class = categoria | lower | replace(' ', '-') %}
+
+                <div class="site-card">
+                    <div class="site-header">
+                        <h3>{{ zona.nombre_zona }}</h3>
+                        <span class="site-ecosystem">{{ zona.ecosistema }}</span>
+                    </div>
+
+                    {% if ehi_val is not none and ehi_val is number %}
+                    <div class="ehi-display riesgo-{{ categoria_class }}">
+                        <div class="ehi-value">
+                            <span class="ehi-number">{{ ehi_val | round(3) }}</span>
+                            <span class="ehi-label">EHI</span>
+                        </div>
+                        <div class="ehi-category">
+                            {{ categoria }}
+                        </div>
+                    </div>
+
+                    <div class="indices-mini-grid">
+                        <div class="index-mini">
+                            <span class="index-label">BI</span>
+                            <span class="index-value">{{ zona.get('bi') | round(3) if zona.get('bi') is number else '--' }}</span>
+                        </div>
+                        <div class="index-mini">
+                            <span class="index-label">TFI</span>
+                            <span class="index-value">{{ zona.get('tfi') | round(3) if zona.get('tfi') is number else '--' }}</span>
+                        </div>
+                        <div class="index-mini">
+                            <span class="index-label">VSI</span>
+                            <span class="index-value">{{ zona.get('vsi') | round(3) if zona.get('vsi') is number else '--' }}</span>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="no-data">
+                        <p>Datos de EHI no calculados.</p>
+                    </div>
+                    {% endif %}
+
+                    <a href="/zona/{{ zona.site_id }}" class="btn btn-primary">Ver Detalles <i class="fa-solid fa-arrow-right"></i></a>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <div class="empty-icon"><i class="fa-solid fa-folder-open"></i></div>
+                    <h3>No hay sitios para mostrar</h3>
+                    <p>Agrega o calcula los datos desde el panel de administración.</p>
+                    <a href="/admin" class="btn btn-primary">Ir a Administración</a>
+                </div>
+            {% endif %}
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2025 EcoBalance - Sistema de Monitoreo Ecológico</p>
+        </div>
+    </footer>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Pasamos los datos de las zonas de Jinja a JavaScript de forma segura
+        const zonasData = JSON.parse('{{ zonas | tojson | safe }}');
+
+        if (zonasData && zonasData.length > 0) {
+            setupMap(zonasData);
+            updateStats(zonasData);
+        }
+
+        function getRiskColor(riesgo) {
+            switch (riesgo) {
+                case 'Saludable': return '#22c55e'; // Verde
+                case 'Moderado': return '#f59e0b'; // Ámbar
+                case 'En Riesgo': return '#ef4444'; // Rojo
+                case 'Crítico': return '#8b0000'; // Rojo Oscuro
+                default: return '#9ca3af'; // Gris
+            }
+        }
+
+        function setupMap(zonas) {
+            // Centrar el mapa en España
+            const map = L.map('map').setView([40.416775, -3.703790], 6);
+
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+                subdomains: 'abcd',
+                maxZoom: 19
+            }).addTo(map);
+
+            zonas.forEach(zona => {
+                if (zona.latitud && zona.longitud) {
+                    const color = getRiskColor(zona.riesgo);
+                    const ehiValue = (zona.ehi && typeof zona.ehi === 'number') ? zona.ehi.toFixed(3) : 'N/A';
+
+                    L.circleMarker([zona.latitud, zona.longitud], {
+                        radius: 8,
+                        fillColor: color,
+                        color: "#000",
+                        weight: 1,
+                        opacity: 1,
+                        fillOpacity: 0.8
+                    }).addTo(map)
+                      .bindPopup(`<b>${zona.nombre_zona}</b><br>EHI: ${ehiValue}<br>Riesgo: ${zona.riesgo}`);
+                }
+            });
+        }
+
+        function updateStats(zonas) {
+            const ehiValues = zonas
+                .map(z => z.ehi)
+                .filter(ehi => typeof ehi === 'number');
+            
+            let criticos = zonas.filter(z => z.riesgo === 'Crítico' || z.riesgo === 'En Riesgo').length;
+
+            if (ehiValues.length > 0) {
+                const promedio = ehiValues.reduce((a, b) => a + b, 0) / ehiValues.length;
+                document.querySelector('#stat-promedio h3').textContent = promedio.toFixed(3);
+            }
+             document.querySelector('#stat-criticos h3').textContent = criticos;
+        }
+    });
+    </script>
+</body>
+</html>
+

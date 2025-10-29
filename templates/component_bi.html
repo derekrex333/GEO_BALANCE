@@ -1,0 +1,35 @@
+<div class="component-card">
+    <div class="component-header" style="background: #36A2EB;">
+        <h3>Índice de Biodiversidad (BI)</h3>
+        <p>Mide la diversidad de especies (Shannon-Wiener)</p>
+    </div>
+    <div class="component-body">
+        <div class="component-value">
+            {{ "%.4f"|format(bi.valor) if bi else '--' }}
+        </div>
+        <div class="component-category">
+            {{ bi.categoria if bi else 'Sin datos' }}
+        </div>
+        
+        {% if bi %}
+        <div class="component-weight">
+            <strong>Peso en EHI:</strong> 30%
+        </div>
+        <div class="component-contribution">
+            <strong>Contribución:</strong> {{ "%.4f"|format(bi.contribucion) }}
+        </div>
+        
+        <div class="component-details">
+            <h5>Detalles del Cálculo:</h5>
+            <ul>
+                <li>Número de especies: {{ bi.detalles.num_especies if bi.detalles else '--' }}</li>
+                <li>Abundancia total: {{ bi.detalles.abundancia_total if bi.detalles else '--' }}</li>
+                <li>Índice Shannon: {{ "%.4f"|format(bi.detalles.shannon_index) if bi.detalles else '--' }}</li>
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+    <div class="component-formula">
+        <strong>Fórmula:</strong> H' = -Σ(pᵢ × ln(pᵢ)) donde pᵢ = nᵢ/N
+    </div>
+</div>

@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administración - EcoBalance</title>
+
+    <!-- Google Fonts y Font Awesome -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+
+    <!-- Hoja de estilos -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <img src="static/img/eb.png" alt="Eco-Balance" class="logo">
+                <h1>Eco-Balance</h1>
+            </div>
+            <div class="nav-links">
+                <a href="/">Dashboard</a>
+                <a href="/admin" class="active">Administración</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container">
+        <header class="page-header">
+            <h2>Panel de Administración</h2>
+            <p class="subtitle">Gestión centralizada y recálculo de índices ecológicos</p>
+        </header>
+
+        {% if error %}
+        <div class="alert alert-error">
+            <strong>Error:</strong> {{ error }}
+        </div>
+        {% endif %}
+
+        <!-- Sección de acciones globales -->
+        <div class="admin-actions">
+            <div class="action-card">
+                <div class="action-icon"><i class="fa-solid fa-arrows-rotate"></i></div>
+                <div class="action-content">
+                    <h3>Recalcular Todos los Índices</h3>
+                    <p>Recalcula TFI, BI, VSI y EHI para todos los sitios y guarda en Excel</p>
+                    <button class="btn btn-primary btn-lg" onclick="confirmCalcularTodos()">
+                        <i class="fa-solid fa-calculator"></i> Calcular todos los sitios
+                    </button>
+                </div>
+            </div>
+
+            <div class="action-card">
+                <div class="action-icon"><i class="fa-solid fa-chart-pie"></i></div>
+                <div class="action-content">
+                    <h3>Estadísticas Generales</h3>
+                    <p>Ver resumen estadístico de todos los ecosistemas</p>
+                    <button class="btn btn-secondary btn-lg" onclick="verEstadisticas()">
+                        <i class="fa-solid fa-magnifying-glass-chart"></i> Ver estadísticas
+                    </button>
+                </div>
+            </div>
+
+            <div class="action-card">
+                <div class="action-icon"><i class="fa-solid fa-file-excel"></i></div>
+                <div class="action-content">
+                    <h3>Exportar Datos</h3>
+                    <p>Los resultados se guardan automáticamente en EcoBalance_Datos.xlsx</p>
+                    <button class="btn btn-secondary btn-lg" onclick="mostrarRuta()">
+                        <i class="fa-solid fa-folder-open"></i> Ver ubicación del archivo
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabla de sitios -->
+        <div class="admin-table-section">
+            <div class="section-header">
+                <h3>Sitios Monitoreados</h3>
+                <span class="badge">{{ zonas|length }} sitios</span>
+            </div>
+
+            {% if zonas %}
+            <div class="table-container">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nombre del Sitio</th>
+                            <th>Ubicación</th>
+                            <th>Tipo de Ecosistema</th>
+                            <th>EHI</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for zona in zonas %}
+                        <tr data-site-id="{{ zona.site_id }}">
+                            <td><code>{{ zona.site_id }}</code></td>
+                            <td><strong>{{ zona.site_name }}</strong></td>
+                            <td>{{ zona.location if zona.location else '--' }}</td>
+                            <td>{{ zona.ecosystem_type if zona.ecosystem_type else '--' }}</td>
+                            <td class="ehi-cell">
+                                {% set resultado = resultados|selectattr('site_id', 'equalto', zona.site_id)|first %}
+                                {% if resultado %}
+                                <span class="ehi-badge" style="background: {{ resultado.color|default('#ccc') }};">
+                                    {{ "%.3f"|format(resultado.EHI) }}
+                                </span>
+                                {% else %}
+                                <span class="ehi-badge" style="background: #ccc;">
+                                    --
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if resultado %}
+                                <span class="status-badge status-ok">
+                                    <i class="fa-solid fa-check"></i> Calculado
+                                </span>
+                                {% else %}
+                                <span class="status-badge status-pending">
+                                    <i class="fa-solid fa-clock"></i> Pendiente
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="actions-cell">
+                                <button class="btn-icon" onclick="calcularSitio('{{ zona.site_id }}', '{{ zona.site_name }}')" title="Recalcular">
+                                    <i class="fa-solid fa-arrows-rotate"></i>
+                                </button>
+                                <a href="/zona/{{ zona.site_id }}" class="btn-icon" title="Ver detalles">
+                                    <i class="fa-solid fa-eye"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <div class="empty-icon"><i class="fa-solid fa-folder-open"></i></div>
+                <h3>No hay sitios registrados</h3>
+                <p>Asegúrate de que el archivo Excel contenga datos en la hoja "1-sites"</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Resultados calculados -->
+        {% if resultados %}
+        <div class="results-section">
+            <div class="section-header">
+                <h3><i class="fa-solid fa-chart-bar"></i> Últimos Resultados Calculados</h3>
+            </div>
+            
+            <div class="results-grid">
+                {% for resultado in resultados %}
+                <div class="result-card" style="border-left: 4px solid {{ resultado.color }};">
+                    <div class="result-header">
+                        <h4>{{ resultado.site_name }}</h4>
+                        <span class="result-id">{{ resultado.site_id }}</span>
+                    </div>
+                    <div class="result-ehi" style="color: {{ resultado.color }};">
+                        {{ "%.4f"|format(resultado.EHI) }}
+                    </div>
+                    <div class="result-category">{{ resultado.categoria }}</div>
+                    <div class="result-indices">
+                        <span><strong>TFI:</strong> {{ "%.3f"|format(resultado.TFI) }}</span>
+                        <span><strong>BI:</strong> {{ "%.3f"|format(resultado.BI) }}</span>
+                        <span><strong>VSI:</strong> {{ "%.3f"|format(resultado.VSI) }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Información del sistema -->
+        <div class="system-info">
+            <h4><i class="fa-solid fa-circle-info"></i> Información del Sistema</h4>
+            <ul>
+                <li><strong>Archivo de datos:</strong> data/EcoBalance_Datos.xlsx</li>
+                <li><strong>Hojas del Excel:</strong> 1-sites, 2-biodiversity_data, 3-trophic_data, 4-vsi_data, 5-results_ehi</li>
+                <li><strong>Fórmula EHI:</strong> EHI = (TFI × 0.5) + (BI × 0.3) + (VSI × 0.2)</li>
+                <li><strong>Rangos de categorías:</strong>
+                    <span class="color-dot" style="background: #3B9A6F;"></span> Excelente (>0.76) |
+                    <span class="color-dot" style="background: #36A2EB;"></span> Bueno (0.51-0.75) |
+                    <span class="color-dot" style="background: #FFC107;"></span> Regular (0.26-0.50) |
+                    <span class="color-dot" style="background: #DC3545;"></span> Pobre (0.11-0.25) |
+                    <span class="color-dot" style="background: #0F1D1F;"></span> Crítico (<0.11)
+                </li>
+            </ul>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2025 EcoBalance - Sistema de Monitoreo Ecológico</p>
+        </div>
+    </footer>
+
+    <!-- Toast Notification -->
+    <div id="toast-notification" class="notification" style="display: none;">
+        <i id="toast-icon" class="fa-solid"></i>
+        <span id="toast-message"></span>
+    </div>
+
+    <!-- Modal de confirmación -->
+    <div id="confirmationModal" class="modal">
+        <div class="modal-content">
+            <h3 id="confirm-title">Confirmar Acción</h3>
+            <p id="confirm-message">¿Estás seguro?</p>
+            <div class="modal-actions" style="display: flex; gap: 1rem; justify-content: center; margin-top: 1.5rem;">
+                <button class="btn btn-secondary" onclick="cerrarModal('confirmationModal')">
+                    <i class="fa-solid fa-xmark"></i> Cancelar
+                </button>
+                <button id="confirm-accept-btn" class="btn btn-primary">
+                    <i class="fa-solid fa-check"></i> Aceptar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de estadísticas -->
+    <div id="statsModal" class="modal">
+        <div class="modal-content stats-modal">
+            <span class="close-modal" onclick="cerrarModal('statsModal')">&times;</span>
+            <h3><i class="fa-solid fa-chart-pie"></i> Estadísticas Generales</h3>
+            <div id="statsContent">
+                <p>Cargando estadísticas...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // --- Sistema de Notificaciones Toast ---
+    const toast = document.getElementById('toast-notification');
+    const toastIcon = document.getElementById('toast-icon');
+    const toastMessage = document.getElementById('toast-message');
+    let toastTimeout;
+
+    function showToast(message, type = 'success') {
+        clearTimeout(toastTimeout);
+        
+        // Reset clases
+        toast.className = 'notification';
+        toast.style.display = 'flex';
+        
+        toastMessage.textContent = message;
+
+        if (type === 'success') {
+            toast.classList.add('notification-success');
+            toastIcon.className = 'fa-solid fa-check-circle';
+        } else if (type === 'error') {
+            toast.classList.add('notification-error');
+            toastIcon.className = 'fa-solid fa-xmark-circle';
+        } else if (type === 'warning') {
+            toast.classList.add('notification-warning');
+            toastIcon.className = 'fa-solid fa-exclamation-triangle';
+        } else {
+            toast.classList.add('notification-info');
+            toastIcon.className = 'fa-solid fa-info-circle';
+        }
+
+        // Auto ocultar después de 4 segundos
+        toastTimeout = setTimeout(() => {
+            toast.style.display = 'none';
+        }, 4000);
+    }
+
+    // --- Gestión de Modales ---
+    function mostrarModal(modalId) {
+        document.getElementById(modalId).style.display = 'flex';
+    }
+
+    function cerrarModal(modalId) {
+        document.getElementById(modalId).style.display = 'none';
+    }
+    
+    // Cerrar modal al hacer clic fuera
+    window.onclick = function(event) {
+        if (event.target.classList.contains('modal')) {
+            event.target.style.display = 'none';
+        }
+    }
+
+    // --- Funciones de la API ---
+    function confirmCalcularTodos() {
+        const modal = document.getElementById('confirmationModal');
+        document.getElementById('confirm-title').innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Confirmar Cálculo Global';
+        document.getElementById('confirm-message').textContent = '¿Calcular índices para TODOS los sitios? Esto puede tardar varios segundos y guardará los resultados en Excel.';
+        
+        const acceptBtn = document.getElementById('confirm-accept-btn');
+        
+        // Clonar botón para remover listeners previos
+        const newAcceptBtn = acceptBtn.cloneNode(true);
+        acceptBtn.parentNode.replaceChild(newAcceptBtn, acceptBtn);
+
+        newAcceptBtn.onclick = function() {
+            cerrarModal('confirmationModal');
+            calcularTodos();
+        };
+        
+        mostrarModal('confirmationModal');
+    }
+
+    function calcularTodos() {
+        showToast('Iniciando cálculo global de todos los sitios...', 'info');
+        
+        fetch('/api/calcular_todos', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast(`✓ Cálculo completado! ${data.total_sitios} sitios procesados. Resultados guardados en Excel.`, 'success');
+                setTimeout(() => location.reload(), 2500);
+            } else {
+                showToast('Error: ' + (data.error || 'Error desconocido'), 'error');
+            }
+        })
+        .catch(error => {
+            showToast('Error de conexión con el servidor', 'error');
+            console.error('Error:', error);
+        });
+    }
+
+    function calcularSitio(siteId, siteName) {
+        showToast(`Calculando índices para ${siteName}...`, 'info');
+        
+        fetch(`/api/calcular/${siteId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => {
+            if (!response.ok) throw new Error('La respuesta del servidor no fue OK');
+            return response.json();
+        })
+        .then(data => {
+            if (data.EHI) {
+                showToast(`✓ Cálculo completado para ${siteName}. EHI: ${data.EHI.valor.toFixed(4)}`, 'success');
+                setTimeout(() => location.reload(), 2000);
+            } else {
+                throw new Error('Respuesta inválida del servidor');
+            }
+        })
+        .catch(error => {
+            showToast(`Error al calcular ${siteName}`, 'error');
+            console.error('Error:', error);
+        });
+    }
+
+    function verEstadisticas() {
+        mostrarModal('statsModal');
+        const contentDiv = document.getElementById('statsContent');
+        contentDiv.innerHTML = '<div class="spinner"></div><p>Cargando datos estadísticos...</p>';
+
+        fetch('/api/estadisticas')
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    contentDiv.innerHTML = `<p class="error"><i class="fa-solid fa-circle-exclamation"></i> ${data.error}</p>`;
+                    return;
+                }
+                
+                const categoryDistribution = Object.entries(data.por_categoria).map(([cat, count]) => 
+                    `<li><strong>${cat}:</strong> ${count} sitios</li>`
+                ).join('');
+
+                contentDiv.innerHTML = `
+                    <div class="stats-grid-modal">
+                        <div class="stat-item">
+                            <h4>${data.total_sitios}</h4>
+                            <p>Total de sitios</p>
+                        </div>
+                        <div class="stat-item">
+                            <h4>${data.ehi_promedio.toFixed(4)}</h4>
+                            <p>EHI Promedio</p>
+                        </div>
+                        <div class="stat-item">
+                            <h4>${data.ehi_max.toFixed(4)}</h4>
+                            <p>EHI Máximo</p>
+                        </div>
+                        <div class="stat-item">
+                            <h4>${data.ehi_min.toFixed(4)}</h4>
+                            <p>EHI Mínimo</p>
+                        </div>
+                    </div>
+                    
+                    <div class="stats-section">
+                        <h4><i class="fa-solid fa-calculator"></i> Promedios por Índice</h4>
+                        <ul class="stats-list">
+                            <li><strong>TFI Promedio:</strong> ${data.tfi_promedio.toFixed(4)}</li>
+                            <li><strong>BI Promedio:</strong> ${data.bi_promedio.toFixed(4)}</li>
+                            <li><strong>VSI Promedio:</strong> ${data.vsi_promedio.toFixed(4)}</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="stats-section">
+                        <h4><i class="fa-solid fa-layer-group"></i> Distribución por Categoría</h4>
+                        <ul class="stats-list">
+                            ${categoryDistribution}
+                        </ul>
+                    </div>
+                `;
+            })
+            .catch(error => {
+                contentDiv.innerHTML = `<p class="error"><i class="fa-solid fa-circle-exclamation"></i> Error al cargar estadísticas</p>`;
+                console.error('Error:', error);
+            });
+    }
+
+    function mostrarRuta() {
+        showToast('Archivo: data/EcoBalance_Datos.xlsx | Hoja: 5-results_ehi', 'info');
+    }
+    </script>
+</body>
+</html>

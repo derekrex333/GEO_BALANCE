@@ -1,0 +1,36 @@
+<div class="component-card">
+    <div class="component-header" style="background: #3B9A6F;">
+        <h3>Índice de Fragmentación del Territorio (TFI)</h3>
+        <p>Evalúa la conectividad del ecosistema</p>
+    </div>
+    <div class="component-body">
+        <div class="component-value">
+            {{ "%.4f"|format(tfi.valor) if tfi else '--' }}
+        </div>
+        <div class="component-category">
+            {{ tfi.categoria if tfi else 'Sin datos' }}
+        </div>
+        
+        {% if tfi %}
+        <div class="component-weight">
+            <strong>Peso en EHI:</strong> 50%
+        </div>
+        <div class="component-contribution">
+            <strong>Contribución:</strong> {{ "%.4f"|format(tfi.contribucion) }}
+        </div>
+        
+        <div class="component-details">
+            <h5>Detalles del Cálculo:</h5>
+            <ul>
+                <li>Conectividad observada: {{ tfi.detalles.connectance_observed if tfi.detalles else '--' }}</li>
+                <li>Conectividad esperada: {{ tfi.detalles.connectance_expected if tfi.detalles else '--' }}</li>
+                <li>Longitud observada: {{ tfi.detalles.length_observed if tfi.detalles else '--' }}</li>
+                <li>Longitud esperada: {{ tfi.detalles.length_expected if tfi.detalles else '--' }}</li>
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+    <div class="component-formula">
+        <strong>Fórmula:</strong> TFI = (Conectividad Observada / Conectividad Esperada) × (Longitud Observada / Longitud Esperada)
+    </div>
+</div>

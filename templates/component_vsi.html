@@ -1,0 +1,34 @@
+<div class="component-card">
+    <div class="component-header" style="background: #FFC107;">
+        <h3>Índice de Vulnerabilidad del Suelo (VSI)</h3>
+        <p>Evalúa la salud y protección del suelo</p>
+    </div>
+    <div class="component-body">
+        <div class="component-value">
+            {{ "%.4f"|format(vsi.valor) if vsi else '--' }}
+        </div>
+        <div class="component-category">
+            {{ vsi.categoria if vsi else 'Sin datos' }}
+        </div>
+        
+        {% if vsi %}
+        <div class="component-weight">
+            <strong>Peso en EHI:</strong> 20%
+        </div>
+        <div class="component-contribution">
+            <strong>Contribución:</strong> {{ "%.4f"|format(vsi.contribucion) }}
+        </div>
+        
+        <div class="component-details">
+            <h5>Detalles del Cálculo:</h5>
+            <ul>
+                <li>Cobertura vegetal: {{ vsi.detalles.coverage_pct if vsi.detalles else '--' }}%</li>
+                <li>Calidad del suelo: {{ vsi.detalles.soil_quality_pct if vsi.detalles else '--' }}%</li>
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+    <div class="component-formula">
+        <strong>Fórmula:</strong> VSI = (Cobertura × 0.6) + (Calidad del Suelo × 0.4)
+    </div>
+</div>

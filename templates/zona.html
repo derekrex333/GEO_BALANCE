@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ zona.site_name }} - EcoBalance</title>
+
+    <!-- Fuente e íconos -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+
+    <!-- CSS principal -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+    <!-- Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+</head>
+
+<body>
+    <!-- NAVBAR -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <img src="static/img/eb.png" alt="Eco-Balance" class="logo">
+                <h1>Eco-Balance</h1>
+            </div>
+            <div class="nav-links">
+                <a href="/">Dashboard</a>
+                <a href="/admin">Administración</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <main class="container">
+        <div class="breadcrumb">
+            <a href="/">← Volver al dashboard</a>
+        </div>
+
+        <!-- ENCABEZADO DE ZONA -->
+        <header class="site-detail-header" style="border-left: 5px solid {{ ehi.color if ehi else '#ccc' }};">
+            <div class="site-title">
+                <h2>{{ zona.site_name }}</h2>
+                <span class="site-id-badge">{{ zona.site_id }}</span>
+            </div>
+            <div class="site-meta">
+                <span>{{ zona.location or 'Ubicación no especificada' }}</span>
+                {% if zona.ecosystem_type %}
+                <span>{{ zona.ecosystem_type }}</span>
+                {% endif %}
+            </div>
+        </header>
+
+        <!-- EHI PRINCIPAL -->
+        <section class="ehi-main-card" style="border: 3px solid {{ ehi.color if ehi else '#ccc' }};">
+            <div class="ehi-main-header">
+                <h3>Índice de Salud Ecológica (EHI)</h3>
+            </div>
+            <div class="ehi-main-content">
+                <div class="ehi-main-value" style="color: {{ ehi.color if ehi else '#666' }};">
+                    {{ "%.4f"|format(ehi.valor) if ehi else '--' }}
+                </div>
+                <div class="ehi-main-category" style="background: {{ ehi.color if ehi else '#ccc' }};">
+                    {{ ehi.categoria if ehi else 'Sin datos' }}
+                </div>
+            </div>
+            {% if ehi and ehi.interpretacion %}
+            <div class="ehi-interpretation">
+                <p><strong>Interpretación:</strong> {{ ehi.interpretacion }}</p>
+            </div>
+            {% endif %}
+        </section>
+
+        <!-- FORMULA DEL EHI -->
+        <section class="formula-card">
+            <h4>Cálculo del EHI</h4>
+            <div class="formula">EHI = (TFI × 0.5) + (BI × 0.3) + (VSI × 0.2)</div>
+            {% if ehi and ehi.componentes %}
+            <div class="formula-breakdown">
+                <p>
+                    EHI = ({{ "%.4f"|format(ehi.componentes.TFI.valor) }} × 0.5) + 
+                    ({{ "%.4f"|format(ehi.componentes.BI.valor) }} × 0.3) + 
+                    ({{ "%.4f"|format(ehi.componentes.VSI.valor) }} × 0.2)
+                </p>
+                <p>
+                    EHI = {{ "%.4f"|format(ehi.componentes.TFI.contribucion) }} + 
+                    {{ "%.4f"|format(ehi.componentes.BI.contribucion) }} + 
+                    {{ "%.4f"|format(ehi.componentes.VSI.contribucion) }} 
+                    = <strong>{{ "%.4f"|format(ehi.valor) }}</strong>
+                </p>
+            </div>
+            {% endif %}
+        </section>
+
+        <!-- COMPONENTES DEL EHI -->
+        <section class="components-grid">
+            {% include 'component_tfi.html' %}
+            {% include 'component_bi.html' %}
+            {% include 'component_vsi.html' %}
+        </section>
+
+        <!-- ESPECIES OBSERVADAS -->
+        {% if biodiv_especies %}
+        <section class="species-section">
+            <h3>Especies Observadas</h3>
+            <p class="species-description">Registro de biodiversidad y abundancia</p>
+            <div class="species-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Especie</th>
+                            <th>Abundancia</th>
+                            <th>Proporción (%)</th>
+                            <th>Barra</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% set total_abundance = biodiv_especies|sum(attribute='abundance') %}
+                        {% for especie in biodiv_especies %}
+                        <tr>
+                            <td>{{ loop.index }}</td>
+                            <td><strong>{{ especie.species }}</strong></td>
+                            <td>{{ especie.abundance }}</td>
+                            <td>{{ "%.2f"|format((especie.abundance / total_abundance) * 100) }}%</td>
+                            <td>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: {{ (especie.abundance / total_abundance) * 100 }}%; background: #10b981;"></div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        <tr class="total-row">
+                            <td colspan="2"><strong>TOTAL</strong></td>
+                            <td><strong>{{ total_abundance }}</strong></td>
+                            <td><strong>100%</strong></td>
+                            <td></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+        {% endif %}
+
+        <!-- ESCALA DE CATEGORÍAS -->
+        <section class="ehi-scale-section">
+            <h3>Escala de Categorización EHI</h3>
+            <div class="ehi-scale">
+                <div class="scale-item" style="background:#22c55e;"><strong>Excelente</strong><span>EHI > 0.76</span></div>
+                <div class="scale-item" style="background:#eab308;"><strong>Bueno</strong><span>0.51 - 0.75</span></div>
+                <div class="scale-item" style="background:#f97316;"><strong>Regular</strong><span>0.26 - 0.50</span></div>
+                <div class="scale-item" style="background:#ef4444;"><strong>Pobre</strong><span>0.11 - 0.25</span></div>
+                <div class="scale-item" style="background:#000;"><strong>Crítico</strong><span>< 0.11</span></div>
+            </div>
+        </section>
+
+        <!-- RECOMENDACIONES -->
+        {% if ehi %}
+        <section class="recommendations-section">
+            <h3>Recomendaciones</h3>
+            <div class="recommendations-content">
+                {% if ehi.valor > 0.76 %}
+                <div class="recommendation-card rec-success">
+                    <h4>Mantener prácticas actuales</h4>
+                    <p>Ecosistema en excelente estado. Continuar con conservación y monitoreo.</p>
+                </div>
+                {% elif ehi.valor >= 0.51 %}
+                <div class="recommendation-card rec-warning">
+                    <h4>Mejoras específicas requeridas</h4>
+                    <p>Buena salud, pero revisar componentes con menor índice.</p>
+                </div>
+                {% elif ehi.valor >= 0.26 %}
+                <div class="recommendation-card rec-alert">
+                    <h4>Intervención moderada</h4>
+                    <p>Aplicar restauración ecológica en las áreas afectadas.</p>
+                </div>
+                {% else %}
+                <div class="recommendation-card rec-danger">
+                    <h4>Acción urgente</h4>
+                    <p>El ecosistema está en estado crítico. Requiere plan de restauración integral.</p>
+                </div>
+                {% endif %}
+            </div>
+        </section>
+        {% endif %}
+
+        <!-- BOTONES DE ACCIÓN -->
+        <div class="action-buttons">
+            <button class="btn btn-primary" onclick="recalcular()">Recalcular índices</button>
+            <button class="btn btn-secondary" onclick="window.print()">Imprimir reporte</button>
+            <button class="btn btn-secondary" onclick="descargarJSON()">Descargar JSON</button>
+            <a href="/" class="btn btn-secondary">Volver al dashboard</a>
+        </div>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2025 EcoBalance | Sitio: {{ zona.site_name }}</p>
+        </div>
+    </footer>
+
+    <!-- SCRIPTS -->
+    <script>
+        function recalcular() {
+            const siteId = '{{ zona.site_id }}';
+            if (!confirm('¿Deseas recalcular todos los índices para este sitio?')) return;
+
+            const btn = event.target;
+            const originalText = btn.textContent;
+            btn.textContent = 'Calculando...';
+            btn.disabled = true;
+
+            fetch(`/api/calcular/${siteId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }})
+            .then(r => r.json())
+            .then(data => {
+                if (data.EHI) {
+                    alert(`✓ Índices recalculados\nEHI: ${data.EHI.valor}\nCategoría: ${data.EHI.categoria}`);
+                    location.reload();
+                } else throw new Error('Respuesta inválida');
+            })
+            .catch(err => alert('Error: ' + err))
+            .finally(() => {
+                btn.textContent = originalText;
+                btn.disabled = false;
+            });
+        }
+
+        function descargarJSON() {
+            const data = {
+                sitio: {
+                    id: '{{ zona.site_id }}',
+                    nombre: '{{ zona.site_name }}',
+                    ubicacion: '{{ zona.location or "" }}',
+                    tipo_ecosistema: '{{ zona.ecosystem_type or "" }}'
+                },
+                indices: {
+                    EHI: {{ ehi.valor if ehi else 0 }},
+                    TFI: {{ tfi.valor if tfi else 0 }},
+                    BI: {{ bi.valor if bi else 0 }},
+                    VSI: {{ vsi.valor if vsi else 0 }}
+                },
+                categoria: '{{ ehi.categoria if ehi else "" }}',
+                color: '{{ ehi.color if ehi else "" }}',
+                fecha_calculo: new Date().toISOString()
+            };
+
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `ecobalance_${data.sitio.id}_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const ehiElement = document.querySelector('.ehi-main-value');
+            if (ehiElement) {
+                const finalValue = parseFloat(ehiElement.textContent);
+                if (!isNaN(finalValue)) {
+                    let start = 0;
+                    const step = () => {
+                        start += (finalValue - start) * 0.1;
+                        ehiElement.textContent = start.toFixed(4);
+                        if (Math.abs(start - finalValue) > 0.0001) requestAnimationFrame(step);
+                    };
+                    step();
+                }
+            }
+        });
+    </script>
+</body>
+</html>
